@@ -7,10 +7,14 @@ import android.opengl.GLDebugHelper;
 import android.os.Build;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
+import android.support.v4.view.GravityCompat;
+import android.support.v4.widget.DrawerLayout;
+import android.support.v4.widget.SwipeRefreshLayout;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
+import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
@@ -36,6 +40,9 @@ public class WeatherActivity extends Activity {
             pm25Text,comfortText,carWashText,sportText;
     private LinearLayout forecastLayout;
     private ImageView bingPicImg;
+    public SwipeRefreshLayout swipeRefresh;
+    public DrawerLayout drawerLayout;
+    private Button navButton;
 
 
     @Override
@@ -53,32 +60,49 @@ public class WeatherActivity extends Activity {
             window.setStatusBarColor(Color.TRANSPARENT);
             window.setNavigationBarColor(Color.TRANSPARENT);
         }
-
         setContentView(R.layout.activity_weather);
         initView();
         initData();
+        setOnListener();
     }
 
 
     private void initData(){
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
         String weatherString = prefs.getString("weather",null);
+        final String weatherId;
          //先从数据库获取，没有数据就网络请求
         if (weatherString != null){
             Weather weather = Utility.handleWeatherResponse(weatherString);
+            weatherId = weather.basic.weatherId;
             showWeatherInfo(weather);
         }else {
-            String weatherId = getIntent().getStringExtra("weather_id");
+            weatherId = getIntent().getStringExtra("weather_id");
             weatherLayout.setVisibility(View.INVISIBLE);
             requestWeather(weatherId);
         }
-        
+        swipeRefresh.setOnRefreshListener(new SwipeRefreshLayout.OnRefreshListener() {
+            @Override
+            public void onRefresh() {
+                requestWeather(weatherId);
+            }
+        });
         String bingPic = prefs.getString("bing_pic",null);
         if (bingPic != null){
             Glide.with(this).load(bingPic).into(bingPicImg);
         }else {
             loadBingPic();
         }
+    }
+
+    private void setOnListener(){
+       navButton.setOnClickListener(new View.OnClickListener() {
+           @Override
+           public void onClick(View view) {
+               drawerLayout.openDrawer(GravityCompat.START);
+           }
+       });
+
     }
 
     /**
@@ -108,7 +132,7 @@ public class WeatherActivity extends Activity {
         });
     }
 
-    private void requestWeather(String weatherId) {
+    public void requestWeather(String weatherId) {
         String weatherUrl = "http://guolin.tech/api/weather?cityid="+weatherId+"&key=7d3b8f9016984895ab9536252664f424";
         HttpUtil.sendOkHttpRequest(weatherUrl, new Callback() {
             @Override
@@ -117,6 +141,7 @@ public class WeatherActivity extends Activity {
                    @Override
                    public void run() {
                        Toast.makeText(WeatherActivity.this,"获取天气信息失败",Toast.LENGTH_SHORT).show();
+                       swipeRefresh.setRefreshing(false);
                    }
                });
             }
@@ -136,6 +161,7 @@ public class WeatherActivity extends Activity {
                         }else {
                             Toast.makeText(WeatherActivity.this,"获取天气信息失败",Toast.LENGTH_SHORT).show();
                         }
+                        swipeRefresh.setRefreshing(false);
                     }
                 });
             }
@@ -193,5 +219,9 @@ public class WeatherActivity extends Activity {
         sportText = (TextView) findViewById(R.id.sport_text);
         forecastLayout = (LinearLayout) findViewById(R.id.forecast_layout);
         bingPicImg = (ImageView) findViewById(R.id.bing_pic_img);
+        swipeRefresh = (SwipeRefreshLayout) findViewById(R.id.swipe_refresh);
+        swipeRefresh.setColorSchemeResources(R.color.colorPrimary);
+        drawerLayout = (DrawerLayout) findViewById(R.id.drawer_layout);
+        navButton = (Button)findViewById(R.id.nav_button);
     }
 }
